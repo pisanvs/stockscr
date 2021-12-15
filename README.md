@@ -2,6 +2,8 @@
 
 display stock prices in terminal
 
+![](./screenie.png)
+
 ## Dependencies
 
 ```

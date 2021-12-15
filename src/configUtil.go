@@ -5,23 +5,22 @@ import (
 	"os"
 )
 
-var configPrefixes []string = []string{"~/.config/stocktracker/", "/etc/stocktracker/", "./"}
+var configPrefixes = []string{"~/.config/stocktracker/", "/etc/stocktracker/", "./"}
 
-func ReadConfig(config Config) error {
+func ReadConfig(stocks *[]Stock) error {
 	// read config file
 	for _, prefix := range configPrefixes {
 		configFile := prefix + "config.json"
-		if _, err := os.Stat(configFile); err != nil {
-			return err
+		// check if file exists
+		if _, err := os.Stat(configFile); err == nil {
+			LoadConfig(configFile, stocks)
+			return nil
 		}
-		// config file exists
-		LoadConfig(configFile, config)
 	}
-
 	return nil
 }
 
-func LoadConfig(configFile string, config Config) error {
+func LoadConfig(configFile string, stocks *[]Stock) error {
 	// read config file
 	jsonFile, err := os.Open(configFile)
 	if err != nil {
@@ -30,12 +29,12 @@ func LoadConfig(configFile string, config Config) error {
 	defer jsonFile.Close()
 
 	jsonDecoder := json.NewDecoder(jsonFile)
-	jsonDecoder.Decode(&config)
+	jsonDecoder.Decode(&stocks)
 
 	return nil
 }
 
-func SaveConfig(configFile string, config Config) error {
+func SaveConfig(configFile string, stocks []Stock) error {
 	// write config file
 	jsonFile, err := os.Create(configFile)
 	if err != nil {
@@ -44,7 +43,7 @@ func SaveConfig(configFile string, config Config) error {
 	defer jsonFile.Close()
 
 	jsonWriter := json.NewEncoder(jsonFile)
-	jsonWriter.Encode(config)
+	jsonWriter.Encode(stocks)
 
 	return nil
 }

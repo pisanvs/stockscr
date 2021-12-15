@@ -15,12 +15,9 @@ func main() {
 	updTick := time.NewTicker(time.Second * 5)
 
 	// initialize configuration
-	var config Config
 	var stockList []Stock
 
-	ReadConfig(config)
-
-	stockList = config
+	ReadConfig(&stockList)
 
 	// initialize termui
 
@@ -48,8 +45,9 @@ func main() {
 	l.SelectedRowStyle.Bg = ui.ColorGreen
 
 	hl := widgets.NewList()
-	hl.SetRect(maxX/4, maxY/10, 150, maxY)
+	hl.SetRect(maxX/4, maxY/10, maxX, maxY/4)
 	hl.Title = "HEADLINES"
+	hl.SelectedRowStyle.Bg = ui.ColorGreen
 
 	ui.Render(p, l, hl)
 
@@ -60,10 +58,10 @@ func main() {
 	// insert mode = 1
 	var mode int = 0
 	var selected int = 0
-	uiloop(mode, selected, p, l, hl, stockList, updTick, config)
+	uiloop(mode, selected, p, l, hl, stockList, updTick)
 }
 
-func uiloop(mode int, selected int, p *widgets.Paragraph, l *widgets.List, hl *widgets.List, stockList []Stock, updTick *time.Ticker, config Config) bool {
+func uiloop(mode int, selected int, p *widgets.Paragraph, l *widgets.List, hl *widgets.List, stockList []Stock, updTick *time.Ticker) bool {
 	uiEvents := ui.PollEvents()
 	for {
 		select {
@@ -77,55 +75,81 @@ func uiloop(mode int, selected int, p *widgets.Paragraph, l *widgets.List, hl *w
 						mode = 1
 					case "<C-c>":
 						// save config
-						SaveConfig("./config.json", config)
+						for i := range stockList {
+							stockList[i].Headlines = nil
+						}
+						SaveConfig("./config.json", stockList)
 						return true
 					case "q":
 						// save config
-						SaveConfig("./config.json", config)
+						for i := range stockList {
+							stockList[i].Headlines = nil
+						}
+						SaveConfig("./config.json", stockList)
 						return true
 					case "j":
-						if selected == 0 {
-							if l.SelectedRow > len(l.Rows)-1 {
-								l.SelectedRow = 0
+						if len(l.Rows) != 0 {
+							if selected == 0 {
+								hl.Rows = []string{}
+								// only increment selected row if we are not at the start of the list
+								if l.SelectedRow < len(l.Rows)-1 {
+									l.SelectedRow++
+								} else {
+									l.SelectedRow = 0
+								}
+								if len(stockList[l.SelectedRow].Headlines) == 0 {
+									res, err := GetNews(stockList[l.SelectedRow].Exchange + ":" + stockList[l.SelectedRow].Symbol)
+									if err != nil {
+										log.Println(err)
+									}
+									stockList[l.SelectedRow].Headlines = res
+								}
+								for _, headline := range stockList[l.SelectedRow].Headlines {
+									hl.Rows = append(hl.Rows, headline.Title)
+								}
 							} else {
-								l.SelectedRow++
-							}
-							res, err := GetNews(stockList[l.SelectedRow].Exchange + ":" + stockList[l.SelectedRow].Symbol)
-							if err != nil {
-								log.Println(err)
-							}
-							for _, headline := range res {
-								hl.Rows = append(hl.Rows, headline.Title)
-							}
-							ui.Render(l, hl)
-						} else {
-							if hl.SelectedRow > len(hl.Rows)-1 {
-								hl.SelectedRow = 0
-							} else {
-								hl.SelectedRow++
+								if hl.SelectedRow > len(hl.Rows)-1 {
+									hl.SelectedRow = 0
+								} else {
+									hl.SelectedRow++
+								}
 							}
 							ui.Render(l, hl)
 						}
 					case "k":
-						if selected == 0 {
-							if l.SelectedRow > 0 {
-								l.SelectedRow--
-							}
-							res, err := GetNews(stockList[l.SelectedRow].Exchange + ":" + stockList[l.SelectedRow].Symbol)
-							if err != nil {
-								log.Println(err)
-							}
-
-							for _, headline := range res {
-								hl.Rows = append(hl.Rows, headline.Title)
-							}
-							ui.Render(l, hl)
-						} else {
-							if hl.SelectedRow > 0 {
-								hl.SelectedRow--
+						if len(l.Rows) != 0 {
+							if selected == 0 {
+								hl.Rows = []string{}
+								if l.SelectedRow > 0 {
+									l.SelectedRow--
+								}
+								if len(stockList[l.SelectedRow].Headlines) == 0 {
+									res, err := GetNews(stockList[l.SelectedRow].Exchange + ":" + stockList[l.SelectedRow].Symbol)
+									if err != nil {
+										log.Println(err)
+									}
+									stockList[l.SelectedRow].Headlines = res
+								}
+								for _, headline := range stockList[l.SelectedRow].Headlines {
+									hl.Rows = append(hl.Rows, headline.Title)
+								}
+							} else {
+								if hl.SelectedRow > 0 {
+									hl.SelectedRow--
+								}
 							}
 							ui.Render(l, hl)
 						}
+					case "l":
+						if selected == 0 {
+							selected = 1
+						}
+						ui.Render(l, hl)
+					case "h":
+						if selected == 1 {
+							selected = 0
+						}
+						ui.Render(l, hl)
 					}
 				}
 				if mode == 1 {
@@ -141,10 +165,10 @@ func uiloop(mode int, selected int, p *widgets.Paragraph, l *widgets.List, hl *w
 						if strings.Contains(p.Text[18:], ":") {
 							// split string
 							sname = strings.Split(p.Text[18:], ":")
-							stockList = append(stockList, Stock{sname[1], sname[0], 0, " -"})
+							stockList = append(stockList, Stock{sname[1], sname[0], 0, " -", []Headline{}})
 						} else {
 							sname[0] = p.Text[18:]
-							stockList = append(stockList, Stock{sname[0], "", 0, " -"})
+							stockList = append(stockList, Stock{sname[0], "", 0, " -", []Headline{}})
 						}
 						l.Rows = append(l.Rows, sname[1])
 						p.Text = "> "
