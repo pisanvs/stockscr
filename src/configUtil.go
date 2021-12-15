@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-var configPrefixes []string = []string{"~/.config/stocktracker/", "/etc/stocktracker/", "../"}
+var configPrefixes []string = []string{"~/.config/stocktracker/", "/etc/stocktracker/", "./"}
 
 func ReadConfig(config Config) error {
 	// read config file

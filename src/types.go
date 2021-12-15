@@ -1,11 +1,15 @@
 package main
 
 type Stock struct {
-	symbol   string
-	exchange string
-	price    float64
+	Symbol   string  `json:"symbol"`
+	Exchange string  `json:"exchange"`
+	Price    float64 `json:"price"`
+	Highlow  string  `json:"highlow"`
 }
 
-type Config struct {
-	Stocks []Stock
+type Config []Stock
+
+type Headline struct {
+	Title string `json:"title"`
+	Link  string `json:"link"`
 }

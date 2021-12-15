@@ -11,9 +11,8 @@ import (
 )
 
 func main() {
-
 	// setup tick for every second
-	ticker := time.NewTicker(time.Second)
+	updTick := time.NewTicker(time.Second * 5)
 
 	// initialize configuration
 	var config Config
@@ -21,7 +20,7 @@ func main() {
 
 	ReadConfig(config)
 
-	stockList = config.Stocks
+	stockList = config
 
 	// initialize termui
 
@@ -41,13 +40,18 @@ func main() {
 	p.SetRect(0, 0, maxX, maxY/10)
 
 	l := widgets.NewList()
-	l.SetRect(0, maxY/10, maxX/3, maxY)
+	l.SetRect(0, maxY/10, maxX/4, maxY)
 	l.Title = "STOCKS"
 	for _, stock := range stockList {
-		l.Rows = append(l.Rows, stock.symbol)
+		l.Rows = append(l.Rows, stock.Symbol)
 	}
+	l.SelectedRowStyle.Bg = ui.ColorGreen
 
-	ui.Render(p, l)
+	hl := widgets.NewList()
+	hl.SetRect(maxX/4, maxY/10, 150, maxY)
+	hl.Title = "HEADLINES"
+
+	ui.Render(p, l, hl)
 
 	// UI Loop
 
@@ -55,7 +59,11 @@ func main() {
 	// normal mode = 0
 	// insert mode = 1
 	var mode int = 0
+	var selected int = 0
+	uiloop(mode, selected, p, l, hl, stockList, updTick, config)
+}
 
+func uiloop(mode int, selected int, p *widgets.Paragraph, l *widgets.List, hl *widgets.List, stockList []Stock, updTick *time.Ticker, config Config) bool {
 	uiEvents := ui.PollEvents()
 	for {
 		select {
@@ -68,9 +76,56 @@ func main() {
 						ui.Render(p)
 						mode = 1
 					case "<C-c>":
-						return
+						// save config
+						SaveConfig("./config.json", config)
+						return true
 					case "q":
-						return
+						// save config
+						SaveConfig("./config.json", config)
+						return true
+					case "j":
+						if selected == 0 {
+							if l.SelectedRow > len(l.Rows)-1 {
+								l.SelectedRow = 0
+							} else {
+								l.SelectedRow++
+							}
+							res, err := GetNews(stockList[l.SelectedRow].Exchange + ":" + stockList[l.SelectedRow].Symbol)
+							if err != nil {
+								log.Println(err)
+							}
+							for _, headline := range res {
+								hl.Rows = append(hl.Rows, headline.Title)
+							}
+							ui.Render(l, hl)
+						} else {
+							if hl.SelectedRow > len(hl.Rows)-1 {
+								hl.SelectedRow = 0
+							} else {
+								hl.SelectedRow++
+							}
+							ui.Render(l, hl)
+						}
+					case "k":
+						if selected == 0 {
+							if l.SelectedRow > 0 {
+								l.SelectedRow--
+							}
+							res, err := GetNews(stockList[l.SelectedRow].Exchange + ":" + stockList[l.SelectedRow].Symbol)
+							if err != nil {
+								log.Println(err)
+							}
+
+							for _, headline := range res {
+								hl.Rows = append(hl.Rows, headline.Title)
+							}
+							ui.Render(l, hl)
+						} else {
+							if hl.SelectedRow > 0 {
+								hl.SelectedRow--
+							}
+							ui.Render(l, hl)
+						}
 					}
 				}
 				if mode == 1 {
@@ -80,10 +135,17 @@ func main() {
 						ui.Render(p)
 						mode = 0
 					case "<Enter>":
-						// enable input handling
 						mode = 0
-						sname := strings.Split(p.Text[18:], ":")
-						stockList = append(stockList, Stock{sname[1], sname[0], 0})
+						sname := make([]string, 2)
+						// check if exchange was specified
+						if strings.Contains(p.Text[18:], ":") {
+							// split string
+							sname = strings.Split(p.Text[18:], ":")
+							stockList = append(stockList, Stock{sname[1], sname[0], 0, " -"})
+						} else {
+							sname[0] = p.Text[18:]
+							stockList = append(stockList, Stock{sname[0], "", 0, " -"})
+						}
 						l.Rows = append(l.Rows, sname[1])
 						p.Text = "> "
 						ui.Render(p, l)
@@ -99,13 +161,15 @@ func main() {
 					}
 				}
 			}
-		case <-ticker.C:
-			// update stock prices
+		case <-updTick.C:
 			for i := range stockList {
-				go updatePrice(&stockList[i])
-				l.Rows[i] = stockList[i].symbol + ": " + strconv.FormatFloat(stockList[i].price, 'f', 2, 64)
+				go updatePrice(&stockList[i], stockList[i].Price)
+				newPrice := strconv.FormatFloat(stockList[i].Price, 'f', 2, 64)
+
+				l.Rows[i] = stockList[i].Symbol + ": " + newPrice + stockList[i].Highlow
 				ui.Render(l)
 			}
 		}
 	}
+
 }

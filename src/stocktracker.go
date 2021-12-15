@@ -6,8 +6,15 @@ import (
 	"strings"
 )
 
-func updatePrice(stock *Stock) error {
-	cmd := exec.Command("tvs", "-n", stock.exchange+":"+stock.symbol, "-s", "-q")
+func updatePrice(stock *Stock, pastPrice float64) error {
+	// get stock price
+	var symbolfull string
+	if stock.Exchange == "" {
+		symbolfull = stock.Symbol
+	} else {
+		symbolfull = stock.Exchange + ":" + stock.Symbol
+	}
+	cmd := exec.Command("tvs", "-n", symbolfull, "-s", "-q")
 
 	out, err := cmd.Output()
 	if err != nil {
@@ -19,8 +26,15 @@ func updatePrice(stock *Stock) error {
 		if err != nil {
 			return err
 		}
+		stock.Price = price
+		if price > pastPrice {
+			stock.Highlow = " ▲"
+		} else if price < pastPrice {
+			stock.Highlow = " ▼"
+		} else {
+			stock.Highlow = " -"
+		}
 
-		stock.price = price
 	}
 	return nil
 }
