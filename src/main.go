@@ -122,6 +122,8 @@ func uiloop(mode int, selected int, p *widgets.Paragraph, l *widgets.List, hl *w
 								hl.Rows = []string{}
 								if l.SelectedRow > 0 {
 									l.SelectedRow--
+								} else {
+									l.SelectedRow = len(l.Rows) - 1
 								}
 								if len(stockList[l.SelectedRow].Headlines) == 0 {
 									res, err := GetNews(stockList[l.SelectedRow].Exchange + ":" + stockList[l.SelectedRow].Symbol)
